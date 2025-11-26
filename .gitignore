@@ -27,3 +27,12 @@ dist-ssr
 .env
 .env.local
 .env.production
+
+# Docker
+.dockerignore
+
+# Vercel
+.vercel
+
+# Build
+build/
