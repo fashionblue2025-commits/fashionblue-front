@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Plus, Search, Edit, Trash2, Eye, Package, AlertCircle, ArrowLeft } from 'lucide-react'
 import { productService } from '../../services/productService'
+import { useUserPermissions } from '../../hooks/useUserPermissions'
+import { useAuthStore } from '../../store/authStore'
 
 export default function CategoryProducts() {
   const { categoryId } = useParams()
@@ -11,10 +13,34 @@ export default function CategoryProducts() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterActive, setFilterActive] = useState('all')
+  const user = useAuthStore(state => state.user)
+  const { canAccessCategory, allowedCategories, loading: loadingPermissions } = useUserPermissions()
 
   useEffect(() => {
-    loadCategoryAndProducts()
-  }, [categoryId])
+    if (!loadingPermissions) {
+      loadCategoryAndProducts()
+    }
+  }, [categoryId, loadingPermissions])
+
+  // Verificar permisos al cargar
+  useEffect(() => {
+    if (!loadingPermissions && categoryId && user?.Role !== 'SUPER_ADMIN') {
+      const catId = parseInt(categoryId)
+      
+      // Si no tiene permisos de ninguna categoría, redirigir
+      if (allowedCategories.length === 0) {
+        alert('No tienes permisos para ver categorías')
+        navigate('/categories')
+        return
+      }
+      
+      // Verificar si tiene permiso de esta categoría específica
+      if (!canAccessCategory(catId)) {
+        alert('No tienes permisos para ver productos de esta categoría')
+        navigate('/categories')
+      }
+    }
+  }, [loadingPermissions, categoryId, user, allowedCategories])
 
   const loadCategoryAndProducts = async () => {
     try {

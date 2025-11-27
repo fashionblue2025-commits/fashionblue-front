@@ -11,28 +11,39 @@ import {
   ShoppingBag,
   BarChart3,
   Shield,
-  DollarSign
+  DollarSign,
+  Key
 } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
+import { useRolePermissions } from '../../hooks/useRolePermissions'
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const location = useLocation()
   const navigate = useNavigate()
   const { user, logout } = useAuthStore()
+  const { getSidebarModules } = useRolePermissions()
 
   const handleLogout = () => {
     logout()
     navigate('/login')
   }
 
-  const navigation = [
-    { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-    { name: 'Analytics', href: '/analytics', icon: BarChart3 },
-    { name: 'Clientes', href: '/customers', icon: Users },
-    { name: 'Categorías', href: '/categories', icon: Package },
-    { name: 'Órdenes', href: '/orders', icon: ShoppingCart },
-  ]
+  // Mapeo de iconos
+  const iconMap = {
+    LayoutDashboard,
+    BarChart3,
+    Users,
+    Package,
+    ShoppingCart,
+    ShoppingBag,
+    DollarSign,
+    Shield,
+    Key
+  }
+
+  // Obtener módulos accesibles según el rol del usuario
+  const { main, admin } = getSidebarModules()
 
   const isActive = (path) => {
     if (path === '/') return location.pathname === '/'
@@ -61,14 +72,15 @@ export default function Layout() {
 
           {/* Navigation */}
           <nav className="flex-1 px-2 space-y-1">
-            {navigation.map((item) => {
-              const Icon = item.icon
-              const active = isActive(item.href)
+            {/* Módulos principales */}
+            {main.map((module) => {
+              const Icon = iconMap[module.icon] || Package
+              const active = isActive(module.path)
               
               return (
                 <Link
-                  key={item.name}
-                  to={item.href}
+                  key={module.key}
+                  to={module.path}
                   className={`
                     group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors
                     ${active
@@ -78,45 +90,40 @@ export default function Layout() {
                   `}
                 >
                   <Icon className={`mr-3 h-5 w-5 flex-shrink-0 ${active ? 'text-white' : 'text-gray-400 group-hover:text-gray-500'}`} />
-                  {item.name}
+                  {module.name}
                 </Link>
               )
             })}
             
-            {/* Admin-only section */}
-            {user?.Role === 'SUPER_ADMIN' && (
+            {/* Sección de Administración */}
+            {admin.length > 0 && (
               <>
                 <div className="pt-4 pb-2">
                   <p className="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">
                     Administración
                   </p>
                 </div>
-                <Link
-                  to="/financial"
-                  className={`
-                    group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors
-                    ${isActive('/financial')
-                      ? 'bg-gradient-brand text-white'
-                      : 'text-gray-700 hover:bg-gray-100'
-                    }
-                  `}
-                >
-                  <DollarSign className={`mr-3 h-5 w-5 flex-shrink-0 ${isActive('/financial') ? 'text-white' : 'text-gray-400 group-hover:text-gray-500'}`} />
-                  Finanzas
-                </Link>
-                <Link
-                  to="/audit"
-                  className={`
-                    group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors
-                    ${isActive('/audit')
-                      ? 'bg-gradient-brand text-white'
-                      : 'text-gray-700 hover:bg-gray-100'
-                    }
-                  `}
-                >
-                  <Shield className={`mr-3 h-5 w-5 flex-shrink-0 ${isActive('/audit') ? 'text-white' : 'text-gray-400 group-hover:text-gray-500'}`} />
-                  Auditoría
-                </Link>
+                {admin.map((module) => {
+                  const Icon = iconMap[module.icon] || Shield
+                  const active = isActive(module.path)
+                  
+                  return (
+                    <Link
+                      key={module.key}
+                      to={module.path}
+                      className={`
+                        group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors
+                        ${active
+                          ? 'bg-gradient-brand text-white'
+                          : 'text-gray-700 hover:bg-gray-100'
+                        }
+                      `}
+                    >
+                      <Icon className={`mr-3 h-5 w-5 flex-shrink-0 ${active ? 'text-white' : 'text-gray-400 group-hover:text-gray-500'}`} />
+                      {module.name}
+                    </Link>
+                  )
+                })}
               </>
             )}
           </nav>
@@ -179,14 +186,15 @@ export default function Layout() {
           </div>
 
           <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
-            {navigation.map((item) => {
-              const Icon = item.icon
-              const active = isActive(item.href)
+            {/* Módulos principales */}
+            {main.map((module) => {
+              const Icon = iconMap[module.icon] || Package
+              const active = isActive(module.path)
               
               return (
                 <Link
-                  key={item.name}
-                  to={item.href}
+                  key={module.key}
+                  to={module.path}
                   onClick={() => setSidebarOpen(false)}
                   className={`
                     group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors
@@ -197,10 +205,43 @@ export default function Layout() {
                   `}
                 >
                   <Icon className={`mr-3 h-5 w-5 flex-shrink-0 ${active ? 'text-white' : 'text-gray-400'}`} />
-                  {item.name}
+                  {module.name}
                 </Link>
               )
             })}
+            
+            {/* Sección de Administración */}
+            {admin.length > 0 && (
+              <>
+                <div className="pt-4 pb-2">
+                  <p className="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                    Administración
+                  </p>
+                </div>
+                {admin.map((module) => {
+                  const Icon = iconMap[module.icon] || Shield
+                  const active = isActive(module.path)
+                  
+                  return (
+                    <Link
+                      key={module.key}
+                      to={module.path}
+                      onClick={() => setSidebarOpen(false)}
+                      className={`
+                        group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors
+                        ${active
+                          ? 'bg-gradient-brand text-white'
+                          : 'text-gray-700 hover:bg-gray-100'
+                        }
+                      `}
+                    >
+                      <Icon className={`mr-3 h-5 w-5 flex-shrink-0 ${active ? 'text-white' : 'text-gray-400'}`} />
+                      {module.name}
+                    </Link>
+                  )
+                })}
+              </>
+            )}
           </nav>
 
           <div className="flex-shrink-0 border-t border-gray-200 p-4">

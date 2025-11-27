@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
-import { ArrowLeft, Save, Plus, Trash2, CheckCircle } from 'lucide-react'
+import { ArrowLeft, Save, Plus, Trash2, CheckCircle, AlertCircle } from 'lucide-react'
 import { productService } from '../../services/productService'
+import { useUserPermissions } from '../../hooks/useUserPermissions'
+import { useAuthStore } from '../../store/authStore'
 
 export default function ProductForm() {
-  const { id } = useParams()
+  const { id, categoryId } = useParams()
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [loadingData, setLoadingData] = useState(!!id)
@@ -14,6 +16,8 @@ export default function ProductForm() {
   const [variants, setVariants] = useState([{ color: '', sizeId: '', stock: 0, unitPrice: 0 }])
   const [showSuccess, setShowSuccess] = useState(false)
   const isEdit = !!id
+  const user = useAuthStore(state => state.user)
+  const { allowedCategories, canAccessCategory, loading: loadingPermissions } = useUserPermissions()
 
   const { register, handleSubmit, formState: { errors }, reset, watch } = useForm({
     defaultValues: {
@@ -26,20 +30,49 @@ export default function ProductForm() {
   const laborCost = watch('LaborCost', 0)
 
   useEffect(() => {
-    loadInitialData()
-    if (id) {
-      loadProduct()
+    if (!loadingPermissions) {
+      loadInitialData()
+      if (id) {
+        loadProduct()
+      }
     }
-  }, [id])
+  }, [id, loadingPermissions, allowedCategories, user?.Role])
+
+  // Verificar permisos al cargar
+  useEffect(() => {
+    if (!loadingPermissions && categoryId && user?.Role !== 'SUPER_ADMIN') {
+      const catId = parseInt(categoryId)
+      
+      // Si no tiene permisos de ninguna categoría, redirigir
+      if (allowedCategories.length === 0) {
+        alert('No tienes permisos para crear productos')
+        navigate('/categories')
+        return
+      }
+      
+      // Verificar si tiene permiso de esta categoría específica
+      if (!canAccessCategory(catId)) {
+        alert('No tienes permisos para crear productos en esta categoría')
+        navigate('/categories')
+      }
+    }
+  }, [loadingPermissions, categoryId, user, allowedCategories])
 
   const loadInitialData = async () => {
     try {
-      const [sizesRes, categoriesRes] = await Promise.all([
-        productService.getSizes(),
-        productService.getCategories()
-      ])
+      const sizesRes = await productService.getSizes()
       setSizes(sizesRes.data || [])
-      setCategories(categoriesRes.data || [])
+      
+      // Cargar categorías según el rol
+      if (user?.Role === 'SUPER_ADMIN') {
+        const categoriesRes = await productService.getCategories()
+        setCategories(categoriesRes.data || [])
+        console.log('👑 Super Admin - Todas las categorías')
+      } else {
+        // Usuarios normales usan las categorías permitidas del hook
+        setCategories(allowedCategories)
+        console.log('👤 Usuario normal - Categorías permitidas:', allowedCategories.length)
+      }
     } catch (error) {
       console.error('Error loading initial data:', error)
     }
@@ -51,21 +84,39 @@ export default function ProductForm() {
       const response = await productService.getProduct(id)
       const product = response.data
       
+      console.log('📥 Producto cargado:', product)
+      
+      // Cargar datos básicos del producto
       reset({
-        Name: product.Name || '',
-        Description: product.Description || '',
-        SKU: product.SKU || '',
-        CategoryID: product.CategoryID || '',
-        MaterialCost: product.MaterialCost || 0,
-        LaborCost: product.LaborCost || 0,
-        ProductionCost: product.ProductionCost || 0,
-        UnitPrice: product.UnitPrice || 0,
-        WholesalePrice: product.WholesalePrice || 0,
-        MinWholesaleQty: product.MinWholesaleQty || 0,
-        Stock: product.Stock || 0,
-        MinStock: product.MinStock || 0,
-        IsActive: product.IsActive
+        Name: product.name || '',
+        Description: product.description || '',
+        SKU: product.sku || '',
+        CategoryID: product.categoryId || '',
+        MaterialCost: product.materialCost || 0,
+        LaborCost: product.laborCost || 0,
+        ProductionCost: product.productionCost || 0,
+        UnitPrice: product.unitPrice || 0,
+        WholesalePrice: product.wholesalePrice || 0,
+        MinWholesaleQty: product.minWholesaleQty || 0,
+        Stock: product.totalStock || 0,
+        MinStock: product.minStock || 0,
+        IsActive: product.isActive !== undefined ? product.isActive : true
       })
+      
+      // Cargar variantes del producto
+      if (product.variants && product.variants.length > 0) {
+        const loadedVariants = product.variants.map(v => ({
+          color: v.color || '',
+          sizeId: v.sizeId ? String(v.sizeId) : '',
+          stock: v.stock || 0,
+          unitPrice: v.unitPrice || 0
+        }))
+        console.log('📦 Variantes cargadas:', loadedVariants)
+        setVariants(loadedVariants)
+      } else {
+        console.log('⚠️ No se encontraron variantes, usando variante por defecto')
+        setVariants([{ color: '', sizeId: '', stock: 0, unitPrice: 0 }])
+      }
     } catch (error) {
       console.error('Error loading product:', error)
       alert('Error al cargar el producto')

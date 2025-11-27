@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Search, Edit, Trash2, FolderOpen, Package } from 'lucide-react'
 import { productService } from '../../services/productService'
+import { useUserPermissions } from '../../hooks/useUserPermissions'
+import { useAuthStore } from '../../store/authStore'
 
 export default function Categories() {
   const navigate = useNavigate()
@@ -12,16 +14,30 @@ export default function Categories() {
   const [editingCategory, setEditingCategory] = useState(null)
   const [formData, setFormData] = useState({ name: '', description: '' })
   const [saving, setSaving] = useState(false)
+  const user = useAuthStore(state => state.user)
+  const { allowedCategories, loading: loadingPermissions } = useUserPermissions()
 
   useEffect(() => {
-    loadCategories()
-  }, [])
+    if (!loadingPermissions) {
+      loadCategories()
+    }
+  }, [loadingPermissions, allowedCategories, user?.Role])
 
   const loadCategories = async () => {
     try {
       setLoading(true)
-      const response = await productService.getCategories()
-      setCategories(response.data || [])
+      
+      // Super Admin carga todas las categorías
+      if (user?.Role === 'SUPER_ADMIN') {
+        const response = await productService.getCategories()
+        const categoriesData = response.data || []
+        console.log('� Super Admin - Todas las categorías:', categoriesData.length)
+        setCategories(categoriesData)
+      } else {
+        // Otros usuarios usan las categorías que ya están cargadas en allowedCategories
+        console.log('👤 Usuario normal - Categorías permitidas:', allowedCategories.length)
+        setCategories(allowedCategories)
+      }
     } catch (error) {
       console.error('Error loading categories:', error)
       alert('Error al cargar las categorías')

@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './store/authStore'
+import { ROLES } from './config/permissions'
 
 // Pages
 import Login from './pages/Auth/Login'
@@ -18,9 +19,11 @@ import CustomerDetail from './pages/Customers/CustomerDetail'
 import AuditLogs from './pages/Audit/AuditLogs'
 import FinancialTransactions from './pages/Financial/FinancialTransactions'
 import CreateTransaction from './pages/Financial/CreateTransaction'
+import UserPermissions from './pages/Admin/UserPermissions'
 
-// Layout
+// Components
 import Layout from './components/Layout/Layout'
+import RoleRoute from './components/RoleRoute'
 
 function App() {
   return (
@@ -31,23 +34,109 @@ function App() {
         
         {/* Rutas protegidas */}
         <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-          <Route index element={<Dashboard />} />
-          <Route path="analytics" element={<DashboardAnalytics />} />
-          <Route path="categories" element={<Categories />} />
-          <Route path="categories/:categoryId/products" element={<CategoryProducts />} />
-          <Route path="categories/:categoryId/products/new" element={<ProductForm />} />
-          <Route path="products/:id" element={<ProductDetail />} />
-          <Route path="products/:id/edit" element={<ProductForm />} />
-          <Route path="orders" element={<Orders />} />
-          <Route path="orders/new" element={<CreateOrder />} />
-          <Route path="orders/:id" element={<OrderDetail />} />
-          <Route path="customers" element={<Customers />} />
-          <Route path="customers/new" element={<CustomerForm />} />
-          <Route path="customers/:id" element={<CustomerDetail />} />
-          <Route path="customers/:id/edit" element={<CustomerForm />} />
-          <Route path="audit" element={<AdminRoute><AuditLogs /></AdminRoute>} />
-          <Route path="financial" element={<AdminRoute><FinancialTransactions /></AdminRoute>} />
-          <Route path="financial/new" element={<AdminRoute><CreateTransaction /></AdminRoute>} />
+          {/* Dashboard - Solo Admin */}
+          <Route index element={
+            <RoleRoute allowedRoles={[ROLES.SUPER_ADMIN, ROLES.ADMIN]}>
+              <Dashboard />
+            </RoleRoute>
+          } />
+          
+          {/* Analytics - Solo Admin */}
+          <Route path="analytics" element={
+            <RoleRoute allowedRoles={[ROLES.SUPER_ADMIN, ROLES.ADMIN]}>
+              <DashboardAnalytics />
+            </RoleRoute>
+          } />
+          
+          {/* Categorías - Admin y Vendedor */}
+          <Route path="categories" element={
+            <RoleRoute allowedRoles={[ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.SELLER]}>
+              <Categories />
+            </RoleRoute>
+          } />
+          <Route path="categories/:categoryId/products" element={
+            <RoleRoute allowedRoles={[ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.SELLER]}>
+              <CategoryProducts />
+            </RoleRoute>
+          } />
+          <Route path="categories/:categoryId/products/new" element={
+            <RoleRoute allowedRoles={[ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.SELLER]}>
+              <ProductForm />
+            </RoleRoute>
+          } />
+          
+          {/* Productos - Admin y Vendedor */}
+          <Route path="products/:id" element={
+            <RoleRoute allowedRoles={[ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.SELLER, ROLES.VIEWER]}>
+              <ProductDetail />
+            </RoleRoute>
+          } />
+          <Route path="products/:id/edit" element={
+            <RoleRoute allowedRoles={[ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.SELLER]}>
+              <ProductForm />
+            </RoleRoute>
+          } />
+          
+          {/* Órdenes - Admin y Vendedor */}
+          <Route path="orders" element={
+            <RoleRoute allowedRoles={[ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.SELLER]}>
+              <Orders />
+            </RoleRoute>
+          } />
+          <Route path="orders/new" element={
+            <RoleRoute allowedRoles={[ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.SELLER]}>
+              <CreateOrder />
+            </RoleRoute>
+          } />
+          <Route path="orders/:id" element={
+            <RoleRoute allowedRoles={[ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.SELLER, ROLES.VIEWER]}>
+              <OrderDetail />
+            </RoleRoute>
+          } />
+          
+          {/* Clientes - Admin y Vendedor */}
+          <Route path="customers" element={
+            <RoleRoute allowedRoles={[ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.SELLER]}>
+              <Customers />
+            </RoleRoute>
+          } />
+          <Route path="customers/new" element={
+            <RoleRoute allowedRoles={[ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.SELLER]}>
+              <CustomerForm />
+            </RoleRoute>
+          } />
+          <Route path="customers/:id" element={
+            <RoleRoute allowedRoles={[ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.SELLER, ROLES.VIEWER]}>
+              <CustomerDetail />
+            </RoleRoute>
+          } />
+          <Route path="customers/:id/edit" element={
+            <RoleRoute allowedRoles={[ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.SELLER]}>
+              <CustomerForm />
+            </RoleRoute>
+          } />
+          
+          {/* Administración - Solo Super Admin */}
+          <Route path="audit" element={
+            <RoleRoute allowedRoles={[ROLES.SUPER_ADMIN]}>
+              <AuditLogs />
+            </RoleRoute>
+          } />
+          <Route path="financial" element={
+            <RoleRoute allowedRoles={[ROLES.SUPER_ADMIN]}>
+              <FinancialTransactions />
+            </RoleRoute>
+          } />
+          <Route path="financial/new" element={
+            <RoleRoute allowedRoles={[ROLES.SUPER_ADMIN]}>
+              <CreateTransaction />
+            </RoleRoute>
+          } />
+          <Route path="permissions" element={
+            <RoleRoute allowedRoles={[ROLES.SUPER_ADMIN]}>
+              <UserPermissions />
+            </RoleRoute>
+          } />
         </Route>
 
         {/* Ruta 404 */}
@@ -57,33 +146,12 @@ function App() {
   )
 }
 
-// Componente para proteger rutas
+// Componente para proteger rutas (requiere autenticación)
 function ProtectedRoute({ children }) {
   const { token } = useAuthStore()
   
   if (!token) {
     return <Navigate to="/login" replace />
-  }
-  
-  return children
-}
-
-// Componente para proteger rutas de admin
-function AdminRoute({ children }) {
-  const { user } = useAuthStore()
-
-  console.log("user", user)
-  
-  if (!user || user.Role !== 'SUPER_ADMIN') {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">🔒 Acceso Denegado</h1>
-          <p className="text-gray-600 mb-6">Solo usuarios con rol SUPER_ADMIN pueden acceder a esta sección.</p>
-          <Navigate to="/" replace />
-        </div>
-      </div>
-    )
   }
   
   return children

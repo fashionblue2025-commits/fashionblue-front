@@ -15,4 +15,10 @@ export const authService = {
     const response = await api.get('/users/profile')
     return response.data
   },
+
+  // Obtener lista de usuarios (solo admin)
+  getUsers: async () => {
+    const response = await api.get('/users')
+    return response.data
+  },
 }
