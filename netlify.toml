@@ -1,0 +1,27 @@
+[build]
+  # Comando para construir la aplicación
+  command = "npm run build"
+  # Directorio donde se generan los archivos estáticos
+  publish = "dist"
+
+# Variables de entorno (estas las configurarás en Netlify UI)
+# VITE_API_URL será definida en el dashboard de Netlify
+
+# Redirects para React Router (SPA)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Headers de seguridad y caché
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"
+    X-XSS-Protection = "1; mode=block"
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
