@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, CheckCircle, XCircle, Truck, Calendar, FileText } from 'lucide-react'
+import { ArrowLeft, CheckCircle, XCircle, Truck, Calendar, FileText, Download } from 'lucide-react'
 import { orderService } from '../../services/orderService'
 import { useOrderStatus } from '../../hooks/useOrderStatus'
 import OrderAuditTimeline from '../../components/OrderAuditTimeline'
+import AccountStatementPreview from '../../components/AccountStatementPreview'
 import { useAuthStore } from '../../store/authStore'
 
 export default function OrderDetail() {
@@ -12,6 +13,10 @@ export default function OrderDetail() {
   const { user } = useAuthStore()
   const [order, setOrder] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [generatingPdf, setGeneratingPdf] = useState(false)
+  const [showPreview, setShowPreview] = useState(false)
+  const [draftData, setDraftData] = useState(null)
+  const [loadingDraft, setLoadingDraft] = useState(false)
   const { allowedStatuses, changeStatus, loading: statusLoading } = useOrderStatus(id)
 
   useEffect(() => {
@@ -83,6 +88,35 @@ export default function OrderDetail() {
       CANCELLED: '¿Estás seguro de cancelar esta orden?'
     }
     return messages[status] || '¿Estás seguro de realizar esta acción?'
+  }
+
+  const handleOpenAccountStatementPreview = async () => {
+    try {
+      setLoadingDraft(true)
+      const response = await orderService.getAccountStatementDraft(id)
+      setDraftData(response.data)
+      setShowPreview(true)
+    } catch (error) {
+      console.error('Error loading draft:', error)
+      alert('Error al cargar el borrador de la cuenta de cobro')
+    } finally {
+      setLoadingDraft(false)
+    }
+  }
+
+  const handleConfirmAccountStatement = async (confirmedData) => {
+    try {
+      setGeneratingPdf(true)
+      await orderService.generateAccountStatement(id, confirmedData)
+      alert('Cuenta de cobro generada y descargada exitosamente')
+      setShowPreview(false)
+      setDraftData(null)
+    } catch (error) {
+      console.error('Error generating account statement:', error)
+      alert('Error al generar la cuenta de cobro')
+    } finally {
+      setGeneratingPdf(false)
+    }
   }
 
 
@@ -363,6 +397,21 @@ export default function OrderDetail() {
                 </div>
               </div>
             </div>
+            
+            {/* Botón de Cuenta de Cobro */}
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <button
+                onClick={handleOpenAccountStatementPreview}
+                disabled={loadingDraft}
+                className="btn bg-purple-600 text-white hover:bg-purple-700 w-full flex items-center justify-center gap-2"
+              >
+                <Download className="w-5 h-5" />
+                {loadingDraft ? 'Cargando...' : 'Generar Cuenta de Cobro'}
+              </button>
+              <p className="text-xs text-gray-500 mt-2 text-center">
+                Previsualiza y edita antes de generar
+              </p>
+            </div>
           </div>
 
           {/* Información Adicional */}
@@ -399,6 +448,20 @@ export default function OrderDetail() {
           <OrderAuditTimeline orderId={id} />
         )}
       </div>
+
+      {/* Modal de Previsualización de Cuenta de Cobro */}
+      {showPreview && draftData && (
+        <AccountStatementPreview
+          orderId={id}
+          draft={draftData}
+          onClose={() => {
+            setShowPreview(false)
+            setDraftData(null)
+          }}
+          onConfirm={handleConfirmAccountStatement}
+          loading={generatingPdf}
+        />
+      )}
     </div>
   )
 }

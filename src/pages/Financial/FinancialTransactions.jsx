@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, Filter, X, TrendingUp, TrendingDown, Calendar } from 'lucide-react'
+import { Plus, Filter, X, TrendingUp, TrendingDown, Calendar, FileText, Edit } from 'lucide-react'
 import { financialService } from '../../services/financialService'
 import { useFinancialBalance } from '../../hooks/useFinancialBalance'
 import BalanceCards from '../../components/BalanceCards'
+import EditTransactionModal from '../../components/EditTransactionModal'
 
 export default function FinancialTransactions() {
   const [transactions, setTransactions] = useState([])
@@ -14,6 +15,9 @@ export default function FinancialTransactions() {
     start_date: '',
     end_date: ''
   })
+  const [editingTransaction, setEditingTransaction] = useState(null)
+  const [updatingTransaction, setUpdatingTransaction] = useState(false)
+  const [generatingPdf, setGeneratingPdf] = useState(false)
   const { balance, loading: balanceLoading, refetch: refetchBalance } = useFinancialBalance()
 
   useEffect(() => {
@@ -47,6 +51,35 @@ export default function FinancialTransactions() {
   }
 
   const hasActiveFilters = Object.values(filters).some(v => v !== '')
+
+  const handleEditTransaction = async (updatedData) => {
+    try {
+      setUpdatingTransaction(true)
+      await financialService.updateTransaction(editingTransaction.id, updatedData)
+      alert('Transacción actualizada exitosamente')
+      setEditingTransaction(null)
+      await loadTransactions()
+      refetchBalance()
+    } catch (error) {
+      console.error('Error updating transaction:', error)
+      alert(error.response?.data?.message || 'Error al actualizar la transacción')
+    } finally {
+      setUpdatingTransaction(false)
+    }
+  }
+
+  const handleGeneratePdf = async () => {
+    try {
+      setGeneratingPdf(true)
+      await financialService.generatePDF(filters)
+      alert('PDF generado y descargado exitosamente')
+    } catch (error) {
+      console.error('Error generating PDF:', error)
+      alert('Error al generar el PDF')
+    } finally {
+      setGeneratingPdf(false)
+    }
+  }
 
   // Categorías
   const incomeCategories = [
@@ -89,13 +122,23 @@ export default function FinancialTransactions() {
           <h1 className="text-3xl font-bold text-gray-900">Transacciones Financieras</h1>
           <p className="text-gray-500 mt-1">Gestiona ingresos y gastos del negocio</p>
         </div>
-        <Link
-          to="/financial/new"
-          className="btn btn-gradient flex items-center gap-2"
-        >
-          <Plus className="w-5 h-5" />
-          Nueva Transacción
-        </Link>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleGeneratePdf}
+            disabled={generatingPdf}
+            className="btn bg-purple-600 text-white hover:bg-purple-700 flex items-center gap-2"
+          >
+            <FileText className="w-5 h-5" />
+            {generatingPdf ? 'Generando...' : 'Exportar PDF'}
+          </button>
+          <Link
+            to="/financial/new"
+            className="btn btn-gradient flex items-center gap-2"
+          >
+            <Plus className="w-5 h-5" />
+            Nueva Transacción
+          </Link>
+        </div>
       </div>
 
       {/* Balance Cards */}
@@ -213,6 +256,9 @@ export default function FinancialTransactions() {
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Monto
                 </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Acciones
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -226,7 +272,7 @@ export default function FinancialTransactions() {
                 </tr>
               ) : transactions.length === 0 ? (
                 <tr>
-                  <td colSpan="5" className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
                     No se encontraron transacciones
                   </td>
                 </tr>
@@ -263,6 +309,15 @@ export default function FinancialTransactions() {
                         ${transaction.amount.toLocaleString('es-CO')}
                       </span>
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
+                      <button
+                        onClick={() => setEditingTransaction(transaction)}
+                        className="text-blue-600 hover:text-blue-800 transition-colors"
+                        title="Editar transacción"
+                      >
+                        <Edit className="w-5 h-5" />
+                      </button>
+                    </td>
                   </tr>
                 ))
               )}
@@ -270,6 +325,16 @@ export default function FinancialTransactions() {
           </table>
         </div>
       </div>
+
+      {/* Modal de Edición */}
+      {editingTransaction && (
+        <EditTransactionModal
+          transaction={editingTransaction}
+          onClose={() => setEditingTransaction(null)}
+          onSubmit={handleEditTransaction}
+          loading={updatingTransaction}
+        />
+      )}
     </div>
   )
 }

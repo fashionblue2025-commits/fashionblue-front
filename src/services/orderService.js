@@ -89,4 +89,29 @@ export const orderService = {
     const response = await api.delete(`/orders/${orderId}/photos/${photoId}`)
     return response.data
   },
+
+  // Obtener borrador de cuenta de cobro
+  getAccountStatementDraft: async (orderId) => {
+    const response = await api.get(`/orders/${orderId}/account-statement/draft`)
+    return response.data
+  },
+
+  // Confirmar y generar cuenta de cobro en PDF
+  generateAccountStatement: async (orderId, data) => {
+    const response = await api.post(`/orders/${orderId}/account-statement`, data, {
+      responseType: 'blob'
+    })
+    
+    // Crear un enlace temporal para descargar el PDF
+    const url = window.URL.createObjectURL(new Blob([response.data]))
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', `cuenta_cobro_orden_${orderId}.pdf`)
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.URL.revokeObjectURL(url)
+    
+    return response
+  },
 }
