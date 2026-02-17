@@ -366,11 +366,11 @@ export default function CustomerDetail() {
                 <div>
                   <p className="text-xs text-gray-500 mb-2">Frecuencia de Pago</p>
                   <div className="flex items-center gap-2 flex-wrap">
-                    {customer.paymentFrequency && (
+                    {customer.paymentFrequency && customer.paymentFrequency !== 'NONE' && (
                       <span className="text-sm text-gray-900 font-medium">
                         {customer.paymentFrequency === 'WEEKLY' ? 'Semanal' :
                          customer.paymentFrequency === 'BIWEEKLY' ? 'Quincenal' :
-                         customer.paymentFrequency === 'MONTHLY' ? 'Mensual' : customer.paymentFrequency}
+                         customer.paymentFrequency === 'MONTHLY' ? 'Mensual' : 'No especificada'}
                       </span>
                     )}
                     {customer.paymentDays && (

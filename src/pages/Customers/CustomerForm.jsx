@@ -116,15 +116,18 @@ export default function CustomerForm() {
         shirt_size_id: data.shirt_size_id ? parseInt(data.shirt_size_id) : null,
         pants_size_id: data.pants_size_id ? parseInt(data.pants_size_id) : null,
         shoes_size_id: data.shoes_size_id ? parseInt(data.shoes_size_id) : null,
+        payment_frequency: data.payment_frequency || null,
+        payment_days: data.payment_days || null,
       }
       
       if (isEdit) {
         await customerService.updateCustomer(id, customerData)
+        navigate(`/customers/${id}`)
       } else {
-        await customerService.createCustomer(customerData)
+        const response = await customerService.createCustomer(customerData)
+        const newCustomerId = response.data?.id || response.id
+        navigate(`/customers/${newCustomerId}`)
       }
-      
-      navigate('/customers')
     } catch (error) {
       console.error('Error saving customer:', error)
       alert(error.response?.data?.message || 'Error al guardar el cliente')
