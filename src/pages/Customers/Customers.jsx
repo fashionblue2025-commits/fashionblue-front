@@ -10,7 +10,10 @@ import {
   Phone,
   MapPin,
   ArrowUpDown,
-  TrendingUp
+  TrendingUp,
+  Eye,
+  EyeOff,
+  DollarSign
 } from 'lucide-react'
 import { customerService } from '../../services/customerService'
 import StatementDownloadButton from '../../components/StatementDownloadButton'
@@ -22,6 +25,7 @@ export default function Customers() {
   const [searchQuery, setSearchQuery] = useState('')
   const [filteredCustomers, setFilteredCustomers] = useState([])
   const [sortBy, setSortBy] = useState('name')
+  const [showBalance, setShowBalance] = useState(true)
 
   useEffect(() => {
     loadCustomers(sortBy)
@@ -70,6 +74,17 @@ export default function Customers() {
     }
   }
 
+  const calculateTotalBalance = () => {
+    return customers.reduce((total, customer) => {
+      const balance = parseFloat(customer.balance) || 0
+      return total + balance
+    }, 0)
+  }
+
+  const toggleBalanceVisibility = () => {
+    setShowBalance(!showBalance)
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -93,6 +108,43 @@ export default function Customers() {
           <Plus className="w-5 h-5" />
           Nuevo Cliente
         </Link>
+      </div>
+
+      {/* Total Balance Card */}
+      <div className="card bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full flex items-center justify-center">
+              <DollarSign className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-600 mb-1">Balance Total</p>
+              <p className={`text-3xl font-bold ${
+                calculateTotalBalance() >= 0 ? 'text-green-600' : 'text-red-600'
+              }`}>
+                {showBalance ? (
+                  `$${calculateTotalBalance().toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+                ) : (
+                  '**********'
+                )}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                {customers.length} cliente{customers.length !== 1 ? 's' : ''} registrado{customers.length !== 1 ? 's' : ''}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={toggleBalanceVisibility}
+            className="p-3 hover:bg-white/50 rounded-lg transition-colors"
+            title={showBalance ? 'Ocultar balance' : 'Mostrar balance'}
+          >
+            {showBalance ? (
+              <Eye className="w-6 h-6 text-blue-600" />
+            ) : (
+              <EyeOff className="w-6 h-6 text-gray-400" />
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Search */}
