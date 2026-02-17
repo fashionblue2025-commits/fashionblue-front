@@ -1,10 +1,44 @@
-import { useState } from 'react'
-import { X, DollarSign, Plus, Trash2 } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { X, DollarSign, Plus, Trash2, Calendar } from 'lucide-react'
+import { paymentMethodService } from '../../services/paymentMethodService'
 
 export default function TransactionModal({ type, onClose, onSubmit, loading }) {
   const [items, setItems] = useState([
     { amount: '', description: '' }
   ])
+  
+  // Fecha actual en formato YYYY-MM-DD
+  const getCurrentDate = () => {
+    const today = new Date()
+    return today.toISOString().split('T')[0]
+  }
+  
+  const [transactionDate, setTransactionDate] = useState(getCurrentDate())
+  const [paymentMethodId, setPaymentMethodId] = useState('')
+  const [paymentMethods, setPaymentMethods] = useState([])
+  const [loadingMethods, setLoadingMethods] = useState(true)
+
+  // Cargar métodos de pago desde el backend
+  useEffect(() => {
+    const fetchPaymentMethods = async () => {
+      try {
+        setLoadingMethods(true)
+        const data = await paymentMethodService.getPaymentMethods()
+        setPaymentMethods(data)
+        // Establecer el primer método como default si existe
+        if (data && data.length > 0) {
+          setPaymentMethodId(data[0].id.toString())
+        }
+      } catch (error) {
+        console.error('Error loading payment methods:', error)
+        setPaymentMethods([])
+      } finally {
+        setLoadingMethods(false)
+      }
+    }
+
+    fetchPaymentMethods()
+  }, [])
 
   const addItem = () => {
     setItems([...items, { amount: '', description: '' }])
@@ -25,11 +59,35 @@ export default function TransactionModal({ type, onClose, onSubmit, loading }) {
   const handleSubmit = (e) => {
     e.preventDefault()
     // Convertir items a formato de transacciones
-    const transactions = items.map(item => ({
-      type,
-      amount: parseFloat(item.amount),
-      description: item.description
-    }))
+    const transactions = items.map(item => {
+      const amount = parseFloat(item.amount)
+      // Generar descripción automática para ABONO
+      let description = item.description
+      if (type === 'ABONO') {
+        const formattedDate = new Date(transactionDate + 'T00:00:00').toLocaleDateString('es-CO', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        })
+        const paymentMethodName = paymentMethods.find(m => m.id == paymentMethodId)?.name || 'Pago'
+        description = `${paymentMethodName} - ${formattedDate} - $${amount.toLocaleString()}`
+      }
+      
+      // Convertir fecha YYYY-MM-DD a ISO 8601 completo
+      const dateISO = new Date(transactionDate + 'T00:00:00').toISOString()
+      
+      const transaction = {
+        type,
+        amount,
+        description,
+        date: dateISO
+      }
+      // Solo agregar payment_method_id para ABONO
+      if (type === 'ABONO') {
+        transaction.payment_method_id = parseInt(paymentMethodId)
+      }
+      return transaction
+    })
     onSubmit(transactions)
   }
 
@@ -103,23 +161,70 @@ export default function TransactionModal({ type, onClose, onSubmit, loading }) {
                   />
                 </div>
 
-                {/* Descripción */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Descripción *
-                  </label>
-                  <textarea
-                    required
-                    rows={2}
-                    value={item.description}
-                    onChange={(e) => updateItem(index, 'description', e.target.value)}
-                    className="input"
-                    placeholder={type === 'DEUDA' ? 'Ej: Camisa polo blanca' : 'Ej: Pago en efectivo'}
-                  />
-                </div>
+                {/* Descripción - Solo para DEUDA */}
+                {type === 'DEUDA' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Descripción *
+                    </label>
+                    <textarea
+                      required
+                      rows={2}
+                      value={item.description}
+                      onChange={(e) => updateItem(index, 'description', e.target.value)}
+                      className="input"
+                      placeholder="Ej: Camisa polo blanca"
+                    />
+                  </div>
+                )}
               </div>
             ))}
           </div>
+
+          {/* Fecha de Transacción */}
+          <div className="border border-gray-200 rounded-lg p-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+              <Calendar className="w-4 h-4" />
+              Fecha de {type === 'DEUDA' ? 'Venta' : 'Abono'} *
+            </label>
+            <input
+              type="date"
+              required
+              value={transactionDate}
+              onChange={(e) => setTransactionDate(e.target.value)}
+              className="input"
+              max={getCurrentDate()}
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Puedes modificar la fecha si es necesario
+            </p>
+          </div>
+
+          {/* Método de Pago (solo para ABONO) */}
+          {type === 'ABONO' && (
+            <div className="border border-gray-200 rounded-lg p-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Método de Pago *
+              </label>
+              <select
+                required
+                value={paymentMethodId}
+                onChange={(e) => setPaymentMethodId(e.target.value)}
+                className="input"
+                disabled={loadingMethods}
+              >
+                {loadingMethods ? (
+                  <option value="">Cargando...</option>
+                ) : (
+                  paymentMethods.map(method => (
+                    <option key={method.id} value={method.id}>
+                      {method.name}
+                    </option>
+                  ))
+                )}
+              </select>
+            </div>
+          )}
 
           {/* Add Item Button */}
           <button
